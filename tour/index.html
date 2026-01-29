@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Virtual Tour | Thalassa Stone Rooms</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="tour.css">
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h2>Loading 3D Tour</h2>
+            <div class="loading-progress">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <p class="loading-percent" id="loadingPercent">0%</p>
+            <p class="loading-hint">Preparing your virtual experience...</p>
+        </div>
+    </div>
+
+    <!-- Error Overlay -->
+    <div class="error-overlay" id="errorOverlay">
+        <div class="error-content">
+            <div class="error-icon">!</div>
+            <h2>Unable to Load 3D Model</h2>
+            <p id="errorMessage">The 3D model could not be loaded. Please try refreshing the page.</p>
+            <button class="btn" onclick="location.reload()">Try Again</button>
+        </div>
+    </div>
+
+    <!-- 3D Canvas Container -->
+    <div class="canvas-container" id="canvasContainer"></div>
+
+    <!-- UI Controls -->
+    <div class="tour-ui">
+        <!-- Header -->
+        <div class="tour-header">
+            <a href="../index.html" class="back-link">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                Back to Site
+            </a>
+            <h1 class="tour-title">Thalassa Stone Rooms</h1>
+            <button class="fullscreen-btn" id="fullscreenBtn" title="Toggle Fullscreen">
+                <svg class="icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/>
+                </svg>
+                <svg class="icon-compress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M8 3v3a2 2 0 01-2 2H3m18 0h-3a2 2 0 01-2-2V3m0 18v-3a2 2 0 012-2h3M3 16h3a2 2 0 012 2v3"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Mode Toggle -->
+        <div class="mode-toggle">
+            <button class="mode-btn active" data-mode="dollhouse" id="dollhouseBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                </svg>
+                Dollhouse
+            </button>
+            <button class="mode-btn" data-mode="inside" id="insideBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+                Inside View
+            </button>
+        </div>
+
+        <!-- Teleport Spots -->
+        <div class="teleport-panel" id="teleportPanel">
+            <p class="panel-label">Jump to Location</p>
+            <div class="teleport-spots" id="teleportSpots">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Controls Hint -->
+        <div class="controls-hint" id="controlsHint">
+            <span class="hint-desktop">
+                <kbd>Drag</kbd> to rotate &nbsp;|&nbsp; <kbd>Scroll</kbd> to zoom &nbsp;|&nbsp; <kbd>Right-drag</kbd> to pan
+            </span>
+            <span class="hint-mobile">
+                <span>1 finger: rotate</span> &nbsp;|&nbsp; <span>Pinch: zoom</span> &nbsp;|&nbsp; <span>2 fingers: pan</span>
+            </span>
+            <button class="hint-close" id="hintClose" title="Dismiss">&times;</button>
+        </div>
+    </div>
+
+    <!-- Three.js via CDN (ES Module) -->
+    <script type="module" src="tour.js"></script>
+</body>
+</html>
