@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>GLB Viewer</title>
+
+    <!-- model-viewer web component -->
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+
+    <style>
+      html, body { margin: 0; height: 100%; background: #111; }
+      model-viewer { width: 100%; height: 100%; }
+    </style>
+  </head>
+  <body>
+    <model-viewer
+      src="./my_home.glb"
+      camera-controls
+      touch-action="pan-y"
+      shadow-intensity="1"
+      exposure="1"
+      auto-rotate
+      rotation-per-second="10deg"
+    ></model-viewer>
+  </body>
+</html>
