@@ -8,6 +8,14 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="tour.css">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
 </head>
 <body>
     <!-- Loading Overlay -->
@@ -36,7 +44,7 @@
     <!-- 3D Canvas Container -->
     <div class="canvas-container" id="canvasContainer"></div>
 
-    <!-- UI Controls -->
+    <!-- Dollhouse UI Controls -->
     <div class="tour-ui">
         <!-- Header -->
         <div class="tour-header">
@@ -57,23 +65,6 @@
             </button>
         </div>
 
-        <!-- Mode Toggle -->
-        <div class="mode-toggle">
-            <button class="mode-btn active" data-mode="dollhouse" id="dollhouseBtn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-                </svg>
-                Dollhouse
-            </button>
-            <button class="mode-btn" data-mode="inside" id="insideBtn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                    <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                </svg>
-                Inside View
-            </button>
-        </div>
-
         <!-- Teleport Spots -->
         <div class="teleport-panel" id="teleportPanel">
             <p class="panel-label">Jump to Location</p>
@@ -85,14 +76,67 @@
         <!-- Controls Hint -->
         <div class="controls-hint" id="controlsHint">
             <span class="hint-desktop">
-                <kbd>Drag</kbd> to rotate &nbsp;|&nbsp; <kbd>Scroll</kbd> to zoom &nbsp;|&nbsp; <kbd>Right-drag</kbd> to pan
+                <kbd>Drag</kbd> to rotate &nbsp;|&nbsp; <kbd>Scroll</kbd> to zoom &nbsp;|&nbsp; <kbd>Right-drag</kbd> to pan &nbsp;|&nbsp; Click hotspot for 360&deg; view
             </span>
             <span class="hint-mobile">
-                <span>1 finger: rotate</span> &nbsp;|&nbsp; <span>Pinch: zoom</span> &nbsp;|&nbsp; <span>2 fingers: pan</span>
+                <span>1 finger: rotate</span> &nbsp;|&nbsp; <span>Pinch: zoom</span> &nbsp;|&nbsp; <span>Tap hotspot for 360&deg;</span>
             </span>
             <button class="hint-close" id="hintClose" title="Dismiss">&times;</button>
         </div>
+
+        <!-- Export Hotspots Button (bottom-right, always visible in dollhouse) -->
+        <button class="export-btn" id="exportHotspotsBtn" title="Export hotspot positions as JSON">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Export Hotspots
+        </button>
     </div>
+
+    <!-- Panorama Overlay UI (visible when inside a 360 pano) -->
+    <div class="pano-overlay" id="panoOverlay">
+        <div class="pano-header">
+            <button class="pano-back-btn" id="panoBackBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                Back to Dollhouse
+            </button>
+            <span class="pano-label" id="panoLabel"></span>
+        </div>
+        <div class="pano-hint">Drag to look around &nbsp;|&nbsp; Click arrows to navigate</div>
+    </div>
+
+    <!-- Placement Mode Overlay -->
+    <div class="placement-overlay" id="placementOverlay">
+        <div class="placement-content">
+            <h3>Hotspot Placement Mode</h3>
+            <p>Selected pano: <strong id="placementIdDisplay">1</strong></p>
+            <p>Press <kbd>1</kbd>-<kbd>7</kbd> to select pano ID</p>
+            <p>Click on the 3D model to place hotspot</p>
+            <p>Press <kbd>P</kbd> to exit placement mode</p>
+        </div>
+    </div>
+
+    <!-- Debug: show errors on screen -->
+    <div id="debugLog" style="position:fixed;bottom:0;left:0;right:0;max-height:30vh;overflow:auto;background:rgba(0,0,0,0.9);color:#0f0;font:12px monospace;padding:8px;z-index:99999;display:none;white-space:pre-wrap;"></div>
+    <script>
+    (function(){
+        var dbg = document.getElementById('debugLog');
+        function log(type, args) {
+            dbg.style.display = 'block';
+            dbg.textContent += '[' + type + '] ' + Array.from(args).map(function(a){ return typeof a === 'object' ? JSON.stringify(a) : String(a); }).join(' ') + '\n';
+            dbg.scrollTop = dbg.scrollHeight;
+        }
+        window.addEventListener('error', function(e){ log('ERROR', [e.message, e.filename + ':' + e.lineno]); });
+        window.addEventListener('unhandledrejection', function(e){ log('REJECT', [e.reason]); });
+        var _error = console.error; console.error = function(){ _error.apply(console, arguments); log('console.error', arguments); };
+        var _warn = console.warn; console.warn = function(){ _warn.apply(console, arguments); log('console.warn', arguments); };
+        var _log = console.log; console.log = function(){ _log.apply(console, arguments); log('console.log', arguments); };
+    })();
+    </script>
 
     <!-- Three.js via CDN (ES Module) -->
     <script type="module" src="tour.js"></script>

@@ -479,6 +479,163 @@ html, body {
     }
 }
 
+/* ==========================================
+   PANORAMA OVERLAY
+   ========================================== */
+
+.pano-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    pointer-events: none;
+    display: none;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.pano-overlay.visible {
+    display: flex;
+}
+
+.pano-overlay > * {
+    pointer-events: auto;
+}
+
+.pano-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+}
+
+.pano-back-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #fff;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.pano-back-btn:hover {
+    background: rgba(201,169,98,0.4);
+}
+
+.pano-label {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.9);
+    text-transform: capitalize;
+}
+
+.pano-hint {
+    text-align: center;
+    padding: 0.75rem;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.6);
+    background: linear-gradient(to top, rgba(0,0,0,0.5), transparent);
+    pointer-events: none;
+}
+
+/* Hide dollhouse-specific controls in pano mode */
+.tour-ui.pano-active .mode-toggle,
+.tour-ui.pano-active .teleport-panel,
+.tour-ui.pano-active .controls-hint,
+.tour-ui.pano-active .export-btn {
+    display: none !important;
+}
+
+/* ==========================================
+   PLACEMENT MODE OVERLAY
+   ========================================== */
+
+.placement-overlay {
+    position: fixed;
+    top: 7rem;
+    right: 1rem;
+    z-index: 150;
+    display: none;
+}
+
+.placement-overlay.visible {
+    display: block;
+}
+
+.placement-content {
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(10px);
+    border: 2px solid #c9a962;
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    max-width: 260px;
+}
+
+.placement-content h3 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #c9a962;
+    margin-bottom: 0.5rem;
+}
+
+.placement-content p {
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.8);
+    margin-bottom: 0.35rem;
+    line-height: 1.5;
+}
+
+.placement-content kbd {
+    display: inline-block;
+    padding: 0.1rem 0.35rem;
+    font-family: inherit;
+    font-size: 0.7rem;
+    background: rgba(255,255,255,0.15);
+    border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+/* ==========================================
+   EXPORT BUTTON
+   ========================================== */
+
+.export-btn {
+    position: absolute;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.9rem;
+    font-family: inherit;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.8);
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.export-btn:hover {
+    background: rgba(201,169,98,0.3);
+    border-color: rgba(201,169,98,0.5);
+    color: #fff;
+}
+
+/* ==========================================
+   FULLSCREEN
+   ========================================== */
+
 /* Fullscreen styles */
 :fullscreen {
     background: #0a0a0a;
