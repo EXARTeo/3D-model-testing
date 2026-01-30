@@ -32,6 +32,35 @@ const DEFAULT_HOTSPOTS = {
     7: { x: 3,  y: 1, z: -3 }       // bedroom
 };
 
+// Per-panorama rotation offset (degrees):
+// What world-yaw does the CENTER of each 360 photo face?
+// Adjust these values so arrows point in the correct direction.
+// Tip: inside a pano, press SHIFT+click to log the current yaw to console.
+const PANO_NORTH_OFFSET = {
+    1: -140,     // livingroom
+    2: 75,     // frontdoor
+    3: -40,     // hallway
+    4: 0,     // kitchen door
+    5: 190,     // kitchen
+    6: 90,     // bedroom door
+    7: 0      // bedroom
+};
+
+// Navigation graph: each pano number -> list of connected pano numbers
+// frontdoor(2) <-> livingroom(1) <-> hallway(3)
+// kitchen door(4) <-> hallway(3) <-> bedroom door(6)
+// kitchen(5) <-> kitchen door(4)
+// bedroom door(6) <-> bedroom(7)
+const PANO_CONNECTIONS = {
+    1: [2, 3],       // livingroom  -> frontdoor, hallway
+    2: [1],          // frontdoor   -> livingroom
+    3: [1, 4, 6],    // hallway     -> livingroom, kitchen door, bedroom door
+    4: [3, 5],       // kitchen door-> hallway, kitchen
+    5: [4],          // kitchen     -> kitchen door
+    6: [3, 7],       // bedroom door-> hallway, bedroom
+    7: [6]           // bedroom     -> bedroom door
+};
+
 // ============================================
 // STATE
 // ============================================
@@ -611,15 +640,30 @@ function createPanoArrows() {
     const pano = panoGraph[currentPanoIndex];
     if (!pano) return;
 
-    // Next - right-front on the floor
-    if (pano.next) {
-        const obj = createFloorCircle(friendlyName(pano.next.file), 50, true, () => navigatePano(pano.next));
-        panoArrows.push(obj);
-    }
+    const currentPos = hotspotPositions[pano.index];
+    if (!currentPos) return;
 
-    // Prev - left-front on the floor
-    if (pano.prev) {
-        const obj = createFloorCircle(friendlyName(pano.prev.file), -50, false, () => navigatePano(pano.prev));
+    // Get connections for this pano from the graph
+    const connections = PANO_CONNECTIONS[pano.index] || [];
+
+    for (const targetIndex of connections) {
+        const targetPano = getPanoByNumber(targetIndex);
+        const targetPos = hotspotPositions[targetIndex];
+        if (!targetPano || !targetPos) continue;
+
+        // Calculate direction from current to target, adjusted for pano orientation
+        const dx = targetPos.x - currentPos.x;
+        const dz = targetPos.z - currentPos.z;
+        const worldYaw = THREE.MathUtils.radToDeg(Math.atan2(dz, dx));
+        const offset = PANO_NORTH_OFFSET[pano.index] || 0;
+        const yawDeg = worldYaw - offset;
+
+        const obj = createFloorCircle(
+            friendlyName(targetPano.file),
+            yawDeg,
+            true,
+            () => navigatePano(targetPano)
+        );
         panoArrows.push(obj);
     }
 }
@@ -633,13 +677,13 @@ function createFloorCircle(label, yawDeg, isNext, onClick) {
     group.userData.onClick = onClick;
     group.userData.isArrow = true;
 
-    // Position on the floor (y = -12, looking down)
+    // Position on the floor, matching camera convention (yaw=0 is +X)
     const theta = THREE.MathUtils.degToRad(yawDeg);
-    const r = 20;
+    const r = 25;
     group.position.set(
-        r * Math.sin(theta),
+        r * Math.cos(theta),
         -12,
-        r * Math.cos(theta)
+        r * Math.sin(theta)
     );
 
     // Flat circle lying on the floor
@@ -686,21 +730,13 @@ function createFloorCircle(label, yawDeg, isNext, onClick) {
     inner.renderOrder = 99;
     group.add(inner);
 
-    // Chevron arrow on the circle surface (flat, pointing forward)
+    // Chevron arrow pointing outward (away from center = toward target)
     const chevronShape = new THREE.Shape();
-    if (isNext) {
-        chevronShape.moveTo(-0.6, 1.0);
-        chevronShape.lineTo(0.6, 0);
-        chevronShape.lineTo(-0.6, -1.0);
-        chevronShape.lineTo(-0.2, 0);
-        chevronShape.closePath();
-    } else {
-        chevronShape.moveTo(0.6, 1.0);
-        chevronShape.lineTo(-0.6, 0);
-        chevronShape.lineTo(0.6, -1.0);
-        chevronShape.lineTo(0.2, 0);
-        chevronShape.closePath();
-    }
+    chevronShape.moveTo(-0.6, 1.0);
+    chevronShape.lineTo(0.6, 0);
+    chevronShape.lineTo(-0.6, -1.0);
+    chevronShape.lineTo(-0.2, 0);
+    chevronShape.closePath();
     const chevGeo = new THREE.ShapeGeometry(chevronShape);
     const chevMat = new THREE.MeshBasicMaterial({
         color: 0xc9a962,
@@ -711,6 +747,8 @@ function createFloorCircle(label, yawDeg, isNext, onClick) {
     });
     const chevron = new THREE.Mesh(chevGeo, chevMat);
     chevron.rotation.x = -Math.PI / 2;
+    // Rotate the chevron so it points outward from center toward target
+    chevron.rotation.z = -(Math.PI / 2 + THREE.MathUtils.degToRad(yawDeg));
     chevron.position.y = 0.05;
     chevron.renderOrder = 100;
     group.add(chevron);
@@ -736,7 +774,7 @@ function createFloorCircle(label, yawDeg, isNext, onClick) {
     const labelTex = new THREE.CanvasTexture(canvas);
     const labelMat = new THREE.SpriteMaterial({ map: labelTex, transparent: true, depthTest: false });
     const labelSprite = new THREE.Sprite(labelMat);
-    labelSprite.position.set(0, 4, 0);
+    labelSprite.position.set(0, 2.5, 0);
     labelSprite.scale.set(7, 1.1, 1);
     labelSprite.renderOrder = 101;
     group.add(labelSprite);
@@ -824,6 +862,14 @@ function onPointerClick(e) {
     raycaster.setFromCamera(pointer, camera);
 
     if (currentMode === 'panorama') {
+        // SHIFT+click: log current yaw for calibrating PANO_NORTH_OFFSET
+        if (e.shiftKey) {
+            const pano = panoGraph[currentPanoIndex];
+            if (pano) {
+                console.log(`Pano ${pano.index} (${pano.file}): current yaw = ${panoYaw.toFixed(1)}°  — use this as PANO_NORTH_OFFSET`);
+            }
+        }
+
         // Check arrow clicks (recursive since arrows are groups with children)
         const hits = raycaster.intersectObjects(panoArrows, true);
         if (hits.length > 0) {
