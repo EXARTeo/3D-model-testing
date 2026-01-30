@@ -327,7 +327,7 @@ async function loadManifest() {
             panoGraph[i].prev = panoGraph[(i - 1 + panoGraph.length) % panoGraph.length];
             panoGraph[i].next = panoGraph[(i + 1) % panoGraph.length];
         }
-        console.log('Pano graph loaded:', panoGraph.length, 'panoramas');
+        // console.log('Pano graph loaded:', panoGraph.length, 'panoramas');
     } catch (err) {
         console.warn('Could not load pano manifest:', err);
     }
@@ -348,7 +348,7 @@ async function loadHotspotPositions() {
         if (res.ok) {
             const data = await res.json();
             hotspotPositions = data;
-            console.log('Loaded hotspots from hotspots.json');
+            // console.log('Loaded hotspots from hotspots.json');
             return;
         }
     } catch (_) { /* ignore */ }
@@ -358,14 +358,14 @@ async function loadHotspotPositions() {
         const stored = localStorage.getItem('thalassa_hotspots');
         if (stored) {
             hotspotPositions = JSON.parse(stored);
-            console.log('Loaded hotspots from localStorage');
+            // console.log('Loaded hotspots from localStorage');
             return;
         }
     } catch (_) { /* ignore */ }
 
     // 3. Defaults
     hotspotPositions = { ...DEFAULT_HOTSPOTS };
-    console.log('Using default hotspot positions');
+    // console.log('Using default hotspot positions');
 }
 
 function saveHotspotsToStorage() {
@@ -520,7 +520,7 @@ function enterPanorama(panoNum) {
 
 function loadPanoTexture(pano) {
     const path = '../360_casa/' + pano.file;
-    console.log('Loading panorama:', path);
+    // console.log('Loading panorama:', path);
 
     textureLoader.load(
         path,
@@ -863,12 +863,12 @@ function onPointerClick(e) {
 
     if (currentMode === 'panorama') {
         // SHIFT+click: log current yaw for calibrating PANO_NORTH_OFFSET
-        if (e.shiftKey) {
-            const pano = panoGraph[currentPanoIndex];
-            if (pano) {
-                console.log(`Pano ${pano.index} (${pano.file}): current yaw = ${panoYaw.toFixed(1)}°  — use this as PANO_NORTH_OFFSET`);
-            }
-        }
+        // if (e.shiftKey) {
+        //     const pano = panoGraph[currentPanoIndex];
+        //     if (pano) {
+        //         console.log(`Pano ${pano.index} (${pano.file}): current yaw = ${panoYaw.toFixed(1)}°  — use this as PANO_NORTH_OFFSET`);
+        //     }
+        // }
 
         // Check arrow clicks (recursive since arrows are groups with children)
         const hits = raycaster.intersectObjects(panoArrows, true);
@@ -897,7 +897,7 @@ function onPointerClick(e) {
             };
             saveHotspotsToStorage();
             createHotspotMeshes();
-            console.log(`Placed hotspot ${placementSelectedId} at`, hotspotPositions[placementSelectedId]);
+            // console.log(`Placed hotspot ${placementSelectedId} at`, hotspotPositions[placementSelectedId]);
         }
         return;
     }
@@ -952,9 +952,9 @@ function togglePlacementMode() {
     }
     if (placementMode) {
         updatePlacementDisplay();
-        console.log('Placement mode ON. Press 1-7 to select pano, click model to place.');
+        // console.log('Placement mode ON. Press 1-7 to select pano, click model to place.');
     } else {
-        console.log('Placement mode OFF.');
+        // console.log('Placement mode OFF.');
     }
 }
 
@@ -976,7 +976,7 @@ function onKeyDown(e) {
     if (placementMode && e.key >= '1' && e.key <= '9') {
         placementSelectedId = parseInt(e.key, 10);
         updatePlacementDisplay();
-        console.log('Selected pano id:', placementSelectedId);
+        // console.log('Selected pano id:', placementSelectedId);
     }
 }
 
@@ -1103,7 +1103,7 @@ function init() {
         // Load manifest + hotspot positions in background
         Promise.all([loadManifest(), loadHotspotPositions()])
             .then(() => {
-                console.log('Manifest and hotspots ready. Panos:', panoGraph.length);
+                // console.log('Manifest and hotspots ready. Panos:', panoGraph.length);
                 // Hotspot meshes will be created once the model finishes loading
                 // If model already loaded, recreate them now
                 if (model) createHotspotMeshes();
