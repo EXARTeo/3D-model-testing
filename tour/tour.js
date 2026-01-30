@@ -23,13 +23,13 @@ const CONFIG = { maxPixelRatio: 2, shadowMapSize: 1024, antialias: true };
 
 // Default hotspot positions on the dollhouse (fallback)
 const DEFAULT_HOTSPOTS = {
-    1: { x: 2, y: 2, z: 2 },
-    2: { x: 1, y: 2, z: 1 },
-    3: { x: 0, y: 2, z: 0 },
-    4: { x: -2, y: 2, z: 1 },
-    5: { x: -2, y: 2, z: -1 },
-    6: { x: 3, y: 2, z: -2 },
-    7: { x: 2, y: 2, z: -3 }
+    1: { x: 2,  y: 1, z: 1 },       // livingroom
+    2: { x: 1,  y: 1, z: 4.5 },     // frontdoor
+    3: { x: -0.6,  y: 1, z: 0.3 },  // hallway
+    4: { x: -2, y: 1, z: 0.75 },    // kitchen door
+    5: { x: -3.3, y: 1, z: 2 },     // kitchen
+    6: { x: 1,  y: 1, z: -0.5 },    // bedroom door
+    7: { x: 3,  y: 1, z: -3 }       // bedroom
 };
 
 // ============================================
@@ -436,6 +436,10 @@ function updateHotspots(time) {
 const textureLoader = new THREE.TextureLoader();
 let currentPanoTexture = null;
 
+// Fade transition state
+let panoFading = false;
+let panoFadeProgress = 1;
+
 // Save/restore camera state when switching modes
 let savedCameraPos = null;
 let savedControlsTarget = null;
@@ -501,7 +505,11 @@ function loadPanoTexture(pano) {
             if (!panoSphere) {
                 const geo = new THREE.SphereGeometry(500, 60, 40);
                 geo.scale(-1, 1, 1); // inside-out
-                const mat = new THREE.MeshBasicMaterial({ map: texture });
+                const mat = new THREE.MeshBasicMaterial({
+                    map: texture,
+                    transparent: true,
+                    opacity: 0
+                });
                 panoSphere = new THREE.Mesh(geo, mat);
             } else {
                 panoSphere.material.map = texture;
@@ -512,9 +520,13 @@ function loadPanoTexture(pano) {
             panoSphere.visible = true;
             panoSphere.position.set(0, 0, 0);
 
+            // Start fade-in
+            panoFading = true;
+            panoFadeProgress = 0;
+            panoSphere.material.opacity = 0;
+
             updatePanoCamera();
             createPanoArrows();
-            console.log('Panorama loaded:', pano.file);
         },
         undefined,
         (err) => {
@@ -590,7 +602,7 @@ function updatePanoCamera() {
 }
 
 // ============================================
-// PANORAMA ARROWS (next/prev) - 3D arrow meshes inside 360 view
+// PANORAMA ARROWS - Floor circles (VR-style navigation)
 // ============================================
 
 function createPanoArrows() {
@@ -599,24 +611,16 @@ function createPanoArrows() {
     const pano = panoGraph[currentPanoIndex];
     if (!pano) return;
 
-    // Next arrow - right side, floor level
+    // Next - right-front on the floor
     if (pano.next) {
-        const arrow = createArrow3D(
-            friendlyName(pano.next.file),
-            45, -20, true,
-            () => navigatePano(pano.next)
-        );
-        panoArrows.push(...arrow);
+        const obj = createFloorCircle(friendlyName(pano.next.file), 50, true, () => navigatePano(pano.next));
+        panoArrows.push(obj);
     }
 
-    // Prev arrow - left side, floor level
+    // Prev - left-front on the floor
     if (pano.prev) {
-        const arrow = createArrow3D(
-            friendlyName(pano.prev.file),
-            -45, -20, false,
-            () => navigatePano(pano.prev)
-        );
-        panoArrows.push(...arrow);
+        const obj = createFloorCircle(friendlyName(pano.prev.file), -50, false, () => navigatePano(pano.prev));
+        panoArrows.push(obj);
     }
 }
 
@@ -624,97 +628,131 @@ function friendlyName(file) {
     return file.replace(/[-_]\d+\.jpe?g$/i, '').replace(/[-_]/g, ' ');
 }
 
-function createArrow3D(label, yawDeg, pitchDeg, isNext, onClick) {
-    const objects = [];
-
-    // Position in sphere (camera at origin)
-    const phi = THREE.MathUtils.degToRad(90 - pitchDeg);
-    const theta = THREE.MathUtils.degToRad(yawDeg);
-    const r = 30;
-    const pos = new THREE.Vector3(
-        r * Math.sin(phi) * Math.cos(theta),
-        r * Math.cos(phi),
-        r * Math.sin(phi) * Math.sin(theta)
-    );
-
-    // Group for the arrow
+function createFloorCircle(label, yawDeg, isNext, onClick) {
     const group = new THREE.Group();
-    group.position.copy(pos);
     group.userData.onClick = onClick;
     group.userData.isArrow = true;
 
-    // Chevron arrow shape using a flat cone
-    const coneGeo = new THREE.ConeGeometry(1.2, 2.5, 3);
-    const coneMat = new THREE.MeshBasicMaterial({
+    // Position on the floor (y = -12, looking down)
+    const theta = THREE.MathUtils.degToRad(yawDeg);
+    const r = 20;
+    group.position.set(
+        r * Math.sin(theta),
+        -12,
+        r * Math.cos(theta)
+    );
+
+    // Flat circle lying on the floor
+    // Outer glow ring
+    const glowGeo = new THREE.RingGeometry(2.8, 3.6, 48);
+    const glowMat = new THREE.MeshBasicMaterial({
         color: 0xc9a962,
         transparent: true,
-        opacity: 0.85,
-        depthTest: false
-    });
-    const cone = new THREE.Mesh(coneGeo, coneMat);
-    // Rotate to point horizontally in the direction of travel
-    cone.rotation.z = isNext ? -Math.PI / 2 : Math.PI / 2;
-    cone.renderOrder = 100;
-    group.add(cone);
-
-    // Background circle for visibility
-    const circleGeo = new THREE.CircleGeometry(2.2, 32);
-    const circleMat = new THREE.MeshBasicMaterial({
-        color: 0x000000,
-        transparent: true,
-        opacity: 0.45,
+        opacity: 0.3,
         side: THREE.DoubleSide,
         depthTest: false
     });
-    const circle = new THREE.Mesh(circleGeo, circleMat);
-    circle.renderOrder = 99;
-    group.add(circle);
+    const glow = new THREE.Mesh(glowGeo, glowMat);
+    glow.rotation.x = -Math.PI / 2;
+    glow.renderOrder = 97;
+    group.add(glow);
+    group.userData.glowMat = glowMat;
 
-    // Outer ring
-    const ringGeo = new THREE.RingGeometry(2.1, 2.4, 32);
+    // Main ring
+    const ringGeo = new THREE.RingGeometry(2.0, 2.8, 48);
     const ringMat = new THREE.MeshBasicMaterial({
         color: 0xc9a962,
         transparent: true,
-        opacity: 0.6,
+        opacity: 0.7,
         side: THREE.DoubleSide,
         depthTest: false
     });
     const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = -Math.PI / 2;
     ring.renderOrder = 98;
     group.add(ring);
 
-    // Billboard: face camera (at origin)
-    group.lookAt(0, 0, 0);
+    // Inner filled circle
+    const innerGeo = new THREE.CircleGeometry(2.0, 48);
+    const innerMat = new THREE.MeshBasicMaterial({
+        color: 0x1a3a4a,
+        transparent: true,
+        opacity: 0.5,
+        side: THREE.DoubleSide,
+        depthTest: false
+    });
+    const inner = new THREE.Mesh(innerGeo, innerMat);
+    inner.rotation.x = -Math.PI / 2;
+    inner.renderOrder = 99;
+    group.add(inner);
 
-    // Label sprite below the arrow
+    // Chevron arrow on the circle surface (flat, pointing forward)
+    const chevronShape = new THREE.Shape();
+    if (isNext) {
+        chevronShape.moveTo(-0.6, 1.0);
+        chevronShape.lineTo(0.6, 0);
+        chevronShape.lineTo(-0.6, -1.0);
+        chevronShape.lineTo(-0.2, 0);
+        chevronShape.closePath();
+    } else {
+        chevronShape.moveTo(0.6, 1.0);
+        chevronShape.lineTo(-0.6, 0);
+        chevronShape.lineTo(0.6, -1.0);
+        chevronShape.lineTo(0.2, 0);
+        chevronShape.closePath();
+    }
+    const chevGeo = new THREE.ShapeGeometry(chevronShape);
+    const chevMat = new THREE.MeshBasicMaterial({
+        color: 0xc9a962,
+        transparent: true,
+        opacity: 0.9,
+        side: THREE.DoubleSide,
+        depthTest: false
+    });
+    const chevron = new THREE.Mesh(chevGeo, chevMat);
+    chevron.rotation.x = -Math.PI / 2;
+    chevron.position.y = 0.05;
+    chevron.renderOrder = 100;
+    group.add(chevron);
+
+    // Label floating above the circle
     const canvas = document.createElement('canvas');
     canvas.width = 512;
-    canvas.height = 64;
+    canvas.height = 80;
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillRect(0, 0, 512, 64);
+    // Background pill
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.beginPath();
+    const pw = ctx.measureText(label).width || 200;
+    ctx.arc(40, 40, 36, Math.PI / 2, Math.PI * 1.5);
+    ctx.arc(472, 40, 36, -Math.PI / 2, Math.PI / 2);
+    ctx.fill();
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 32px sans-serif';
+    ctx.font = '500 30px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(label, 256, 32);
+    ctx.fillText(label, 256, 42);
 
     const labelTex = new THREE.CanvasTexture(canvas);
     const labelMat = new THREE.SpriteMaterial({ map: labelTex, transparent: true, depthTest: false });
     const labelSprite = new THREE.Sprite(labelMat);
-    // Position label below the arrow group
-    const labelOffset = pos.clone().normalize().multiplyScalar(r);
-    labelOffset.y -= 4;
-    labelSprite.position.copy(labelOffset);
-    labelSprite.scale.set(8, 1, 1);
+    labelSprite.position.set(0, 4, 0);
+    labelSprite.scale.set(7, 1.1, 1);
     labelSprite.renderOrder = 101;
-    labelSprite.userData.onClick = onClick;
-    labelSprite.userData.isArrow = true;
+    group.add(labelSprite);
 
     scene.add(group);
-    scene.add(labelSprite);
-    objects.push(group, labelSprite);
-    return objects;
+    return group;
+}
+
+// Animate floor circles (pulse glow)
+function updatePanoArrowPulse(time) {
+    for (const group of panoArrows) {
+        if (group.userData.glowMat) {
+            const pulse = 0.2 + 0.15 * Math.sin(time * 0.004);
+            group.userData.glowMat.opacity = pulse;
+        }
+    }
 }
 
 function removePanoArrows() {
@@ -901,10 +939,15 @@ function onKeyDown(e) {
 // ============================================
 
 function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-        (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen || document.documentElement.msRequestFullscreen).call(document.documentElement);
+    // Check both own document and parent for fullscreen state
+    const isFullscreen = document.fullscreenElement || (window.parent !== window && window.parent.document.fullscreenElement);
+    if (!isFullscreen) {
+        const el = document.documentElement;
+        (el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen).call(el);
     } else {
-        (document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen).call(document);
+        // Exit from whichever document is fullscreened
+        const doc = document.fullscreenElement ? document : window.parent.document;
+        (doc.exitFullscreen || doc.webkitExitFullscreen || doc.msExitFullscreen).call(doc);
     }
 }
 
@@ -978,10 +1021,22 @@ window.addEventListener('resize', onWindowResize);
 
 function animate(time) {
     requestAnimationFrame(animate);
+    const t = time || 0;
 
     if (currentMode === 'dollhouse') {
         controls.update();
-        updateHotspots(time || 0);
+        updateHotspots(t);
+    } else if (currentMode === 'panorama') {
+        updatePanoArrowPulse(t);
+        // Handle fade transition
+        if (panoFading && panoSphere) {
+            panoFadeProgress += 0.03;
+            if (panoFadeProgress >= 1) {
+                panoFadeProgress = 1;
+                panoFading = false;
+            }
+            panoSphere.material.opacity = panoFadeProgress;
+        }
     }
 
     renderer.render(scene, camera);
