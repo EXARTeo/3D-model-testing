@@ -103,9 +103,6 @@
         const formData = new FormData(contactForm);
         const data = Object.fromEntries(formData.entries());
 
-        // Demo: Show confirmation (in production, this would submit to a server)
-        console.log('Form submission (demo):', data);
-
         // Create success message
         const successMessage = document.createElement('div');
         successMessage.style.cssText = `
@@ -261,7 +258,6 @@
             }
         });
 
-        console.log('Thalassa Stone Rooms website initialized');
     }
 
     // Run on DOM ready

@@ -197,26 +197,6 @@ html, body {
     background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
 }
 
-.back-link {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.9);
-    text-decoration: none;
-    transition: color 0.2s ease;
-}
-
-.back-link:hover {
-    color: #c9a962;
-}
-
-.back-link svg {
-    width: 18px;
-    height: 18px;
-}
-
 .tour-title {
     position: absolute;
     left: 50%;
@@ -228,6 +208,7 @@ html, body {
 }
 
 .fullscreen-btn {
+    margin-left: auto;
     width: 40px;
     height: 40px;
     background: rgba(255, 255, 255, 0.1);
@@ -427,7 +408,11 @@ html, body {
         font-size: 0.85rem;
     }
 
-    .back-link span {
+    .teleport-panel {
+        display: none;
+    }
+
+    .controls-hint {
         display: none;
     }
 
@@ -445,11 +430,6 @@ html, body {
         height: 14px;
     }
 
-    .teleport-panel {
-        bottom: 5rem;
-        padding: 0.625rem 0.75rem;
-    }
-
     .spot-btn {
         padding: 0.375rem 0.75rem;
         font-size: 0.75rem;
@@ -463,9 +443,6 @@ html, body {
         display: inline;
     }
 
-    .controls-hint {
-        font-size: 0.7rem;
-    }
 }
 
 /* Touch device detection */
@@ -548,89 +525,20 @@ html, body {
 /* Hide dollhouse-specific controls in pano mode */
 .tour-ui.pano-active .mode-toggle,
 .tour-ui.pano-active .teleport-panel,
-.tour-ui.pano-active .controls-hint,
-.tour-ui.pano-active .export-btn {
+.tour-ui.pano-active .controls-hint {
     display: none !important;
 }
 
-/* ==========================================
-   PLACEMENT MODE OVERLAY
-   ========================================== */
-
-.placement-overlay {
+/* Shrink tour title in pano mode */
+.tour-ui.pano-active .tour-title {
+    font-size: 0.6rem;
+    opacity: 0.5;
+    top: 0.25rem;
     position: fixed;
-    top: 7rem;
-    right: 1rem;
-    z-index: 150;
-    display: none;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
-.placement-overlay.visible {
-    display: block;
-}
-
-.placement-content {
-    background: rgba(0,0,0,0.8);
-    backdrop-filter: blur(10px);
-    border: 2px solid #c9a962;
-    border-radius: 10px;
-    padding: 1rem 1.25rem;
-    max-width: 260px;
-}
-
-.placement-content h3 {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #c9a962;
-    margin-bottom: 0.5rem;
-}
-
-.placement-content p {
-    font-size: 0.75rem;
-    color: rgba(255,255,255,0.8);
-    margin-bottom: 0.35rem;
-    line-height: 1.5;
-}
-
-.placement-content kbd {
-    display: inline-block;
-    padding: 0.1rem 0.35rem;
-    font-family: inherit;
-    font-size: 0.7rem;
-    background: rgba(255,255,255,0.15);
-    border-radius: 3px;
-    border: 1px solid rgba(255,255,255,0.2);
-}
-
-/* ==========================================
-   EXPORT BUTTON
-   ========================================== */
-
-.export-btn {
-    position: absolute;
-    bottom: 1.5rem;
-    right: 1.5rem;
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.5rem 0.9rem;
-    font-family: inherit;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: rgba(255,255,255,0.8);
-    background: rgba(0,0,0,0.5);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.export-btn:hover {
-    background: rgba(201,169,98,0.3);
-    border-color: rgba(201,169,98,0.5);
-    color: #fff;
-}
 
 /* ==========================================
    FULLSCREEN
@@ -643,4 +551,12 @@ html, body {
 
 :fullscreen .tour-header {
     background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+}
+
+:fullscreen .teleport-panel {
+    display: block;
+}
+
+:fullscreen .controls-hint {
+    display: block;
 }

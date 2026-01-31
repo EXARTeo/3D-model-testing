@@ -48,12 +48,6 @@
     <div class="tour-ui">
         <!-- Header -->
         <div class="tour-header">
-            <a href="../index.html" class="back-link" target="_top">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 12H5M12 19l-7-7 7-7"/>
-                </svg>
-                Back to Site
-            </a>
             <h1 class="tour-title">Thalassa Stone Rooms</h1>
             <button class="fullscreen-btn" id="fullscreenBtn" title="Toggle Fullscreen">
                 <svg class="icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -84,15 +78,6 @@
             <button class="hint-close" id="hintClose" title="Dismiss">&times;</button>
         </div>
 
-        <!-- Export Hotspots Button (bottom-right, always visible in dollhouse) -->
-        <button class="export-btn" id="exportHotspotsBtn" title="Export hotspot positions as JSON">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/>
-                <line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-            Export Hotspots
-        </button>
     </div>
 
     <!-- Panorama Overlay UI (visible when inside a 360 pano) -->
@@ -102,41 +87,13 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
                     <path d="M19 12H5M12 19l-7-7 7-7"/>
                 </svg>
-                Back to Dollhouse
+                <!-- Back to Dollhouse --> <!-- TODO check again later -->
             </button>
             <span class="pano-label" id="panoLabel"></span>
         </div>
         <div class="pano-hint">Drag to look around &nbsp;|&nbsp; Click arrows to navigate</div>
     </div>
 
-    <!-- Placement Mode Overlay -->
-    <div class="placement-overlay" id="placementOverlay">
-        <div class="placement-content">
-            <h3>Hotspot Placement Mode</h3>
-            <p>Selected pano: <strong id="placementIdDisplay">1</strong></p>
-            <p>Press <kbd>1</kbd>-<kbd>7</kbd> to select pano ID</p>
-            <p>Click on the 3D model to place hotspot</p>
-            <p>Press <kbd>P</kbd> to exit placement mode</p>
-        </div>
-    </div>
-
-    <!-- Debug: show errors on screen -->
-    <div id="debugLog" style="position:fixed;bottom:0;left:0;right:0;max-height:30vh;overflow:auto;background:rgba(0,0,0,0.9);color:#0f0;font:12px monospace;padding:8px;z-index:99999;display:none;white-space:pre-wrap;"></div>
-    <script>
-    (function(){
-        var dbg = document.getElementById('debugLog');
-        function log(type, args) {
-            dbg.style.display = 'block';
-            dbg.textContent += '[' + type + '] ' + Array.from(args).map(function(a){ return typeof a === 'object' ? JSON.stringify(a) : String(a); }).join(' ') + '\n';
-            dbg.scrollTop = dbg.scrollHeight;
-        }
-        window.addEventListener('error', function(e){ log('ERROR', [e.message, e.filename + ':' + e.lineno]); });
-        window.addEventListener('unhandledrejection', function(e){ log('REJECT', [e.reason]); });
-        var _error = console.error; console.error = function(){ _error.apply(console, arguments); log('console.error', arguments); };
-        var _warn = console.warn; console.warn = function(){ _warn.apply(console, arguments); log('console.warn', arguments); };
-        var _log = console.log; console.log = function(){ _log.apply(console, arguments); log('console.log', arguments); };
-    })();
-    </script>
 
     <!-- Three.js via CDN (ES Module) -->
     <script type="module" src="tour.js"></script>

@@ -35,7 +35,6 @@ const DEFAULT_HOTSPOTS = {
 // Per-panorama rotation offset (degrees):
 // What world-yaw does the CENTER of each 360 photo face?
 // Adjust these values so arrows point in the correct direction.
-// Tip: inside a pano, press SHIFT+click to log the current yaw to console.
 const PANO_NORTH_OFFSET = {
     1: -140,     // livingroom
     2: 75,     // frontdoor
@@ -77,15 +76,15 @@ let currentPanoIndex = -1;
 let panoSphere = null;
 let panoArrows = [];
 let panoYaw = 0, panoPitch = 0;
+let panoFov = 60;
 let panoPointerDown = false;
 let panoPointerX = 0, panoPointerY = 0;
+let panoPinchDist = 0;
 
 // Hotspot state
 let hotspotPositions = {};   // panoNumber -> {x,y,z}
 let hotspotMeshes = [];      // THREE.Mesh[]
 // connectionObjects removed - arrows are inside pano view only
-let placementMode = false;
-let placementSelectedId = 1;
 
 // Raycaster
 const raycaster = new THREE.Raycaster();
@@ -111,9 +110,6 @@ const hintClose = document.getElementById('hintClose');
 const panoOverlay = document.getElementById('panoOverlay');
 const panoBackBtn = document.getElementById('panoBackBtn');
 const panoLabel = document.getElementById('panoLabel');
-const placementOverlay = document.getElementById('placementOverlay');
-const placementIdDisplay = document.getElementById('placementIdDisplay');
-const exportBtn = document.getElementById('exportHotspotsBtn');
 
 // ============================================
 // THREE.JS SETUP
@@ -228,7 +224,6 @@ function loadModel() {
             }
         },
         (error) => {
-            console.error('Error loading model:', error);
             showError(`Failed to load 3D model. Error: ${error.message || 'Unknown error'}.`);
         }
     );
@@ -327,9 +322,8 @@ async function loadManifest() {
             panoGraph[i].prev = panoGraph[(i - 1 + panoGraph.length) % panoGraph.length];
             panoGraph[i].next = panoGraph[(i + 1) % panoGraph.length];
         }
-        // console.log('Pano graph loaded:', panoGraph.length, 'panoramas');
     } catch (err) {
-        console.warn('Could not load pano manifest:', err);
+        // silently ignore - pano manifest is optional
     }
 }
 
@@ -348,7 +342,6 @@ async function loadHotspotPositions() {
         if (res.ok) {
             const data = await res.json();
             hotspotPositions = data;
-            // console.log('Loaded hotspots from hotspots.json');
             return;
         }
     } catch (_) { /* ignore */ }
@@ -358,31 +351,14 @@ async function loadHotspotPositions() {
         const stored = localStorage.getItem('thalassa_hotspots');
         if (stored) {
             hotspotPositions = JSON.parse(stored);
-            // console.log('Loaded hotspots from localStorage');
             return;
         }
     } catch (_) { /* ignore */ }
 
     // 3. Defaults
     hotspotPositions = { ...DEFAULT_HOTSPOTS };
-    // console.log('Using default hotspot positions');
 }
 
-function saveHotspotsToStorage() {
-    try {
-        localStorage.setItem('thalassa_hotspots', JSON.stringify(hotspotPositions));
-    } catch (_) { /* ignore */ }
-}
-
-function exportHotspotsJSON() {
-    const blob = new Blob([JSON.stringify(hotspotPositions, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'hotspots.json';
-    a.click();
-    URL.revokeObjectURL(url);
-}
 
 // ============================================
 // HOTSPOT 3D VISUALS (on dollhouse model)
@@ -472,15 +448,13 @@ let panoFadeProgress = 1;
 // Save/restore camera state when switching modes
 let savedCameraPos = null;
 let savedControlsTarget = null;
+let savedCameraFov = 60;
 let savedCameraNear = 0.1;
 let savedCameraFar = 1000;
 
 function enterPanorama(panoNum) {
     const pano = getPanoByNumber(panoNum);
-    if (!pano) {
-        console.warn('No pano found for number:', panoNum);
-        return;
-    }
+    if (!pano) return;
 
     currentMode = 'panorama';
     currentPanoIndex = pano.arrayIdx;
@@ -488,14 +462,17 @@ function enterPanorama(panoNum) {
     // Save current camera state for restoration
     savedCameraPos = camera.position.clone();
     savedControlsTarget = controls.target.clone();
+    savedCameraFov = camera.fov;
     savedCameraNear = camera.near;
     savedCameraFar = camera.far;
+
+    // Reset pano zoom
+    panoFov = 60;
+    camera.fov = 60;
 
     // Hide dollhouse UI, show pano UI
     document.querySelector('.tour-ui').classList.add('pano-active');
     panoOverlay.classList.add('visible');
-    if (placementOverlay) placementOverlay.classList.remove('visible');
-
     // Hide the dollhouse model, hotspots and connections
     if (model) model.visible = false;
     hotspotMeshes.forEach(m => m.visible = false);
@@ -520,7 +497,6 @@ function enterPanorama(panoNum) {
 
 function loadPanoTexture(pano) {
     const path = '../360_casa/' + pano.file;
-    // console.log('Loading panorama:', path);
 
     textureLoader.load(
         path,
@@ -558,9 +534,7 @@ function loadPanoTexture(pano) {
             createPanoArrows();
         },
         undefined,
-        (err) => {
-            console.error('Failed to load panorama texture:', path, err);
-        }
+        undefined
     );
 }
 
@@ -577,6 +551,7 @@ function exitPanorama() {
     if (savedCameraPos) {
         camera.position.copy(savedCameraPos);
         controls.target.copy(savedControlsTarget);
+        camera.fov = savedCameraFov;
         camera.near = savedCameraNear;
         camera.far = savedCameraFar;
         camera.updateProjectionMatrix();
@@ -606,6 +581,9 @@ function navigatePano(pano) {
     currentPanoIndex = pano.arrayIdx;
     panoYaw = 0;
     panoPitch = 0;
+    panoFov = 60;
+    camera.fov = 60;
+    camera.updateProjectionMatrix();
     loadPanoTexture(pano);
     updatePanoLabel(pano);
 }
@@ -848,6 +826,26 @@ function repositionPanoArrows() {
 }
 
 // ============================================
+// PANORAMA ZOOM (wheel + pinch)
+// ============================================
+
+function onPanoWheel(e) {
+    if (currentMode !== 'panorama') return;
+    e.preventDefault();
+    panoFov += e.deltaY * 0.05;
+    panoFov = Math.max(30, Math.min(100, panoFov));
+    camera.fov = panoFov;
+    camera.updateProjectionMatrix();
+}
+
+function getTouchDist(e) {
+    const t = e.touches;
+    const dx = t[0].clientX - t[1].clientX;
+    const dy = t[0].clientY - t[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+// ============================================
 // CLICK / TAP HANDLING
 // ============================================
 
@@ -862,14 +860,6 @@ function onPointerClick(e) {
     raycaster.setFromCamera(pointer, camera);
 
     if (currentMode === 'panorama') {
-        // SHIFT+click: log current yaw for calibrating PANO_NORTH_OFFSET
-        // if (e.shiftKey) {
-        //     const pano = panoGraph[currentPanoIndex];
-        //     if (pano) {
-        //         console.log(`Pano ${pano.index} (${pano.file}): current yaw = ${panoYaw.toFixed(1)}°  — use this as PANO_NORTH_OFFSET`);
-        //     }
-        // }
-
         // Check arrow clicks (recursive since arrows are groups with children)
         const hits = raycaster.intersectObjects(panoArrows, true);
         if (hits.length > 0) {
@@ -881,28 +871,7 @@ function onPointerClick(e) {
         return;
     }
 
-    // Dollhouse mode
-    if (placementMode && model) {
-        // Place hotspot on model surface
-        const modelMeshes = [];
-        model.traverse(c => { if (c.isMesh) modelMeshes.push(c); });
-        const hits = raycaster.intersectObjects(modelMeshes, false);
-        if (hits.length > 0) {
-            const pt = hits[0].point;
-            // Offset slightly above surface
-            hotspotPositions[placementSelectedId] = {
-                x: parseFloat(pt.x.toFixed(3)),
-                y: parseFloat((pt.y + 0.3).toFixed(3)),
-                z: parseFloat(pt.z.toFixed(3))
-            };
-            saveHotspotsToStorage();
-            createHotspotMeshes();
-            // console.log(`Placed hotspot ${placementSelectedId} at`, hotspotPositions[placementSelectedId]);
-        }
-        return;
-    }
-
-    // Check hotspot clicks
+    // Dollhouse mode - check hotspot clicks
     const hotHits = raycaster.intersectObjects(hotspotMeshes, true);
     if (hotHits.length > 0) {
         // Walk up to root hotspot mesh
@@ -941,42 +910,9 @@ function onGlobalPointerMove(e) {
     onPanoPointerMove(e);
 }
 
-// ============================================
-// PLACEMENT MODE
-// ============================================
-
-function togglePlacementMode() {
-    placementMode = !placementMode;
-    if (placementOverlay) {
-        placementOverlay.classList.toggle('visible', placementMode);
-    }
-    if (placementMode) {
-        updatePlacementDisplay();
-        // console.log('Placement mode ON. Press 1-7 to select pano, click model to place.');
-    } else {
-        // console.log('Placement mode OFF.');
-    }
-}
-
-function updatePlacementDisplay() {
-    if (placementIdDisplay) {
-        placementIdDisplay.textContent = placementSelectedId;
-    }
-}
-
 function onKeyDown(e) {
-    if (e.key === 'p' || e.key === 'P') {
-        if (currentMode !== 'panorama') {
-            togglePlacementMode();
-        }
-    }
     if (e.key === 'Escape' && currentMode === 'panorama') {
         exitPanorama();
-    }
-    if (placementMode && e.key >= '1' && e.key <= '9') {
-        placementSelectedId = parseInt(e.key, 10);
-        updatePlacementDisplay();
-        // console.log('Selected pano id:', placementSelectedId);
     }
 }
 
@@ -1024,25 +960,45 @@ function setupUI() {
     // Pano back button
     if (panoBackBtn) panoBackBtn.addEventListener('click', exitPanorama);
 
-    // Export button
-    if (exportBtn) exportBtn.addEventListener('click', exportHotspotsJSON);
-
     // Pointer events (unified mouse + touch)
     const canvas = renderer.domElement;
     canvas.addEventListener('pointerdown', onGlobalPointerDown);
     canvas.addEventListener('pointermove', onGlobalPointerMove);
     canvas.addEventListener('pointerup', onGlobalPointerUp);
 
-    // Touch events for mobile pano
+    // Wheel zoom in pano mode
+    canvas.addEventListener('wheel', onPanoWheel, { passive: false });
+
+    // Touch events for mobile pano (pinch-to-zoom + drag-to-look)
     canvas.addEventListener('touchstart', (e) => {
-        if (currentMode === 'panorama') e.preventDefault();
+        if (currentMode === 'panorama') {
+            e.preventDefault();
+            if (e.touches.length === 2) {
+                panoPinchDist = getTouchDist(e);
+                panoPointerDown = false;
+                return;
+            }
+        }
         onGlobalPointerDown(e);
     }, { passive: false });
     canvas.addEventListener('touchmove', (e) => {
-        if (currentMode === 'panorama') e.preventDefault();
+        if (currentMode === 'panorama') {
+            e.preventDefault();
+            if (e.touches.length === 2) {
+                const dist = getTouchDist(e);
+                const delta = panoPinchDist - dist;
+                panoFov += delta * 0.15;
+                panoFov = Math.max(30, Math.min(100, panoFov));
+                camera.fov = panoFov;
+                camera.updateProjectionMatrix();
+                panoPinchDist = dist;
+                return;
+            }
+        }
         onGlobalPointerMove(e);
     }, { passive: false });
     canvas.addEventListener('touchend', (e) => {
+        panoPinchDist = 0;
         onGlobalPointerUp(e);
     });
 
@@ -1103,15 +1059,12 @@ function init() {
         // Load manifest + hotspot positions in background
         Promise.all([loadManifest(), loadHotspotPositions()])
             .then(() => {
-                // console.log('Manifest and hotspots ready. Panos:', panoGraph.length);
-                // Hotspot meshes will be created once the model finishes loading
-                // If model already loaded, recreate them now
+                // If model already loaded, recreate hotspot meshes now
                 if (model) createHotspotMeshes();
             })
-            .catch(err => console.warn('Non-critical load error:', err));
+            .catch(() => {});
 
     } catch (error) {
-        console.error('Initialization error:', error);
         showError(`Failed to initialize: ${error.message}`);
     }
 }
