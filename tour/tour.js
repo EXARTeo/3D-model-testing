@@ -944,11 +944,37 @@ function isIOS() {
            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
+// Check if we're inside an iframe
+function isInIframe() {
+    try {
+        return window.self !== window.top;
+    } catch (e) {
+        // If cross-origin, we're definitely in an iframe
+        return true;
+    }
+}
+
 function toggleFullscreen() {
-    // iOS fallback: open tour in new tab for a "clean" fullscreen-like experience
-    // since Safari doesn't support Fullscreen API for non-video elements
+    // iOS fallback: native Fullscreen API not supported for non-video elements
     if (isIOS()) {
-        window.open(window.location.href, '_blank');
+        if (isInIframe()) {
+            // We're in an iframe - open in new tab for fullscreen-like experience
+            window.open(window.location.href, '_blank');
+        } else {
+            // We're already in "fullscreen" mode (standalone tab)
+            // Try to close the tab (works if opened via JS)
+            // Otherwise go back in history to return to the main site
+            if (window.opener) {
+                window.close();
+            } else {
+                // Fallback: go back in history or navigate to parent site
+                if (document.referrer) {
+                    window.location.href = document.referrer;
+                } else {
+                    history.back();
+                }
+            }
+        }
         return;
     }
 
@@ -984,6 +1010,11 @@ function setupUI() {
     // Fullscreen (iOS opens in new tab, others use native Fullscreen API)
     fullscreenBtn.addEventListener('click', toggleFullscreen);
     if (panoFullscreenBtn) panoFullscreenBtn.addEventListener('click', toggleFullscreen);
+
+    // On iOS, if we're not in an iframe, we're in "fullscreen" mode - update icon
+    if (isIOS() && !isInIframe()) {
+        document.body.classList.add('ios-fullscreen');
+    }
 
     // Hint close
     hintClose.addEventListener('click', () => controlsHint.classList.add('hidden'));

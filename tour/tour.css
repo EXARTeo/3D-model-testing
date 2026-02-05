@@ -243,6 +243,15 @@ html, body {
     display: block;
 }
 
+/* iOS fullscreen mode (standalone tab, not in iframe) */
+body.ios-fullscreen .fullscreen-btn .icon-expand {
+    display: none;
+}
+
+body.ios-fullscreen .fullscreen-btn .icon-compress {
+    display: block;
+}
+
 /* Mode Toggle */
 .mode-toggle {
     position: absolute;
