@@ -549,13 +549,6 @@ html, body {
     margin-left: auto;
 }
 
-/* Hide fullscreen buttons on iOS (Fullscreen API not supported) */
-@supports (-webkit-touch-callout: none) {
-    .fullscreen-btn {
-        display: none !important;
-    }
-}
-
 /* Fullscreen styles */
 :fullscreen {
     background: #0a0a0a;

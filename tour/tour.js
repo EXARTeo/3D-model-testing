@@ -945,10 +945,14 @@ function isIOS() {
 }
 
 function toggleFullscreen() {
-    // iOS doesn't support Fullscreen API for non-video elements
-    if (isIOS()) return;
+    // iOS fallback: open tour in new tab for a "clean" fullscreen-like experience
+    // since Safari doesn't support Fullscreen API for non-video elements
+    if (isIOS()) {
+        window.open(window.location.href, '_blank');
+        return;
+    }
 
-    // Check both own document and parent for fullscreen state
+    // Desktop/Android: use native Fullscreen API
     const isFullscreen = document.fullscreenElement || (window.parent !== window && window.parent.document.fullscreenElement);
     if (!isFullscreen) {
         const el = document.documentElement;
@@ -957,13 +961,6 @@ function toggleFullscreen() {
         // Exit from whichever document is fullscreened
         const doc = document.fullscreenElement ? document : window.parent.document;
         (doc.exitFullscreen || doc.webkitExitFullscreen || doc.msExitFullscreen).call(doc);
-    }
-}
-
-function hideFullscreenButtonsOnIOS() {
-    if (isIOS()) {
-        if (fullscreenBtn) fullscreenBtn.style.display = 'none';
-        if (panoFullscreenBtn) panoFullscreenBtn.style.display = 'none';
     }
 }
 
@@ -984,10 +981,9 @@ function setupUI() {
 
     // Mode toggle removed - no inside GLB navigation
 
-    // Fullscreen
+    // Fullscreen (iOS opens in new tab, others use native Fullscreen API)
     fullscreenBtn.addEventListener('click', toggleFullscreen);
     if (panoFullscreenBtn) panoFullscreenBtn.addEventListener('click', toggleFullscreen);
-    hideFullscreenButtonsOnIOS();
 
     // Hint close
     hintClose.addEventListener('click', () => controlsHint.classList.add('hidden'));
