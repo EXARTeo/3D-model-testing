@@ -70,6 +70,12 @@ let modelBoundingBox = null;
 let currentMode = 'dollhouse'; // 'dollhouse' | 'panorama'
 let isAnimating = false;
 
+// Auto-spin state
+let autoSpinEnabled = true;
+let lastInteractionTime = 0;
+const AUTO_SPIN_DELAY = 3000;  // 5 seconds of no interaction before spinning resumes
+const AUTO_SPIN_SPEED = 0.002; // radians per frame
+
 // Panorama state
 let panoGraph = [];          // sorted array of { index, file, prev, next }
 let currentPanoIndex = -1;
@@ -110,6 +116,7 @@ const hintClose = document.getElementById('hintClose');
 const panoOverlay = document.getElementById('panoOverlay');
 const panoBackBtn = document.getElementById('panoBackBtn');
 const panoLabel = document.getElementById('panoLabel');
+const panoFullscreenBtn = document.getElementById('panoFullscreenBtn');
 
 // ============================================
 // THREE.JS SETUP
@@ -140,6 +147,15 @@ function initScene() {
     controls.maxDistance = 50;
     controls.maxPolarAngle = Math.PI * 0.9;
     controls.target.set(0, 0, 0);
+
+    // Track user interaction for auto-spin
+    controls.addEventListener('start', () => {
+        autoSpinEnabled = false;
+        lastInteractionTime = Date.now();
+    });
+    controls.addEventListener('end', () => {
+        lastInteractionTime = Date.now();
+    });
 
     setupLighting();
     animate();
@@ -268,6 +284,8 @@ function teleportTo(spotKey) {
     const spot = SPOTS[spotKey];
     if (!spot || isAnimating) return;
     isAnimating = true;
+    autoSpinEnabled = false;
+    lastInteractionTime = Date.now();
 
     document.querySelectorAll('.spot-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.spot === spotKey);
@@ -920,7 +938,16 @@ function onKeyDown(e) {
 // FULLSCREEN
 // ============================================
 
+// Detect iOS (Safari doesn't support fullscreen API for non-video elements)
+function isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
 function toggleFullscreen() {
+    // iOS doesn't support Fullscreen API for non-video elements
+    if (isIOS()) return;
+
     // Check both own document and parent for fullscreen state
     const isFullscreen = document.fullscreenElement || (window.parent !== window && window.parent.document.fullscreenElement);
     if (!isFullscreen) {
@@ -930,6 +957,13 @@ function toggleFullscreen() {
         // Exit from whichever document is fullscreened
         const doc = document.fullscreenElement ? document : window.parent.document;
         (doc.exitFullscreen || doc.webkitExitFullscreen || doc.msExitFullscreen).call(doc);
+    }
+}
+
+function hideFullscreenButtonsOnIOS() {
+    if (isIOS()) {
+        if (fullscreenBtn) fullscreenBtn.style.display = 'none';
+        if (panoFullscreenBtn) panoFullscreenBtn.style.display = 'none';
     }
 }
 
@@ -952,6 +986,8 @@ function setupUI() {
 
     // Fullscreen
     fullscreenBtn.addEventListener('click', toggleFullscreen);
+    if (panoFullscreenBtn) panoFullscreenBtn.addEventListener('click', toggleFullscreen);
+    hideFullscreenButtonsOnIOS();
 
     // Hint close
     hintClose.addEventListener('click', () => controlsHint.classList.add('hidden'));
@@ -1026,6 +1062,22 @@ function animate(time) {
     const t = time || 0;
 
     if (currentMode === 'dollhouse') {
+        // Auto-spin logic
+        if (!autoSpinEnabled && Date.now() - lastInteractionTime > AUTO_SPIN_DELAY) {
+            autoSpinEnabled = true;
+        }
+
+        if (autoSpinEnabled && !isAnimating) {
+            // Rotate around the target (orbit horizontally)
+            const target = controls.target;
+            const offset = camera.position.clone().sub(target);
+            const spherical = new THREE.Spherical().setFromVector3(offset);
+            spherical.theta += AUTO_SPIN_SPEED;
+            offset.setFromSpherical(spherical);
+            camera.position.copy(target).add(offset);
+            camera.lookAt(target);
+        }
+
         controls.update();
         updateHotspots(t);
     } else if (currentMode === 'panorama') {
